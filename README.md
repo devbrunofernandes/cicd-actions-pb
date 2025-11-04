@@ -106,6 +106,95 @@ A aplicação modelo é uma API escrita Python utilizando a biblioteca/framework
     ```
 
 ## 2️⃣ – Criar o GitHub Actions (CI/CD)
+O GitHub actions vai ser a ferramenta de CI que utilizaremos, sendo uma parte essencial do processo de automatização no ciclo de vida do software. 
+
+- ### Criar diretório de workflows
+    Para usar o GitHub actions precisamos criar no repositório um diretório `.github` e dentro dele um outro diretório `workflows`, este contendo um arquivo yaml que vai definir as operações de CI.
+
+    ``` bash
+    mkdir -p .github/workflows/ && cd .github/workflows/
+    touch ci-build-push.yml
+    ```
+- ### Criar a chave de acesso ao repositório GitOps
+    Usaremos uma chave SSH para garantir o acesso ao repositório que terá os manifestos da aplicação. Vá para um diretório onde deseja guardar sua chave (exemplo recomendado: `~/.ssh`), lembre-se de que a chave não deve ser compartilhada.
+
+    Para criar a chave SSH, utilize o seguinte comando:
+
+    ``` bash
+    ssh-keygen -t rsa -b 4096 -f ./cicd-ssh-key -N "" -C "cicd-ssh-key"
+    ```
+
+    Antes de prosseguir para o proximo passo precisamos cadastrar a chave pública no repositório GitOps. (**Lembre-se de permitir a escrita no repositório, pois isso é necessario para o workflow**)
+
+    Para saber mais sobre, acesse a [documentação oficial do GitHub sobre chaves de implantação](https://docs.github.com/pt/authentication/connecting-to-github-with-ssh/managing-deploy-keys).
+
+- ### Gerar token de acesso pessoal do DockerHub
+    Seguindo a mesma lógica de chave de acesso porém dessa vez para o DockerHub, esse token vai garantir que podemos fazer uma operação de `push` para o registry.
+
+    **Ao criar o token de acesso lembre-se de garantir o direito de escrito e leitura. Lembre-se também de guardar o valor do token pois ele só exibido 1 vez.**
+
+    Em caso de dúvida no processo de criação acesse a [documentaçao oficial do Docker sobre tokens de acesso](https://docs.docker.com/security/access-tokens/).
+
+- ### Criar segredos no GitHub
+    Precisamos também dos segredos no repositório do código fonte, com eles podemos armazenar os dados sensíveis de autentificação de forma segura e utiliza-los no arquivo de workflow do GitHub Actions.
+
+    Para criar um segredo vá até as configurações do repositório com o código fonte da aplicação, clique em `secrets and variables`, em seguida em `actions`, então em secrets clique em `New repository secret`.
+
+    Os segredos que devem ser criados são:
+    - *DOCKER_USERNAME* -> com o nome de usuario do DockerHub
+    - *DOCKER_PASSWORD* -> com o token de acesso que geramos no DockerHub
+    - *SSH_PRIVATE_KEY* -> com a chave SSH **privada** do par que geramos.
+
+    Utilize os mesmos nome de segredos para ser compativel com a variavel no arquivo workflow que vai ser criado.
+
+- ### Criar o arquivo workflow
+    Finalmente podemos criar o arquivo yaml do workflow para o GitHub actions. 
+    
+    Como ainda não temos o manifesto do Kubernetes, a parte de alteração do manifesto, commit e push não vai estar completa por agora, completaremos essa sessão nos proximos passos.
+
+    ``` yaml
+    name: CI Build Push
+    on: 
+        push:
+            branches:
+                - main
+    jobs:
+        build-and-push:
+            runs-on: ubuntu-latest
+            steps:
+                - name: Repo checkout
+                uses: actions/checkout@v5
+
+                - name: Login Docker hub
+                uses: docker/login-action@v3
+                with:
+                    username: ${{ secrets.DOCKER_USERNAME }}
+                    password: ${{ secrets.DOCKER_PASSWORD }}
+
+                - name: Set up QEMU
+                uses: docker/setup-qemu-action@v3
+
+                - name: Set up Docker Buildx
+                uses: docker/setup-buildx-action@v3
+
+                - name: Build and push
+                uses: docker/build-push-action@v6
+                with:
+                    context: .
+                    push: true
+                    tags: |
+                        ${{ secrets.DOCKER_USERNAME }}/cicd-app-pb:latest
+                        ${{ secrets.DOCKER_USERNAME }}/cicd-app-pb:${{ github.sha }}
+
+        # esse job vai ser criado após o manifesto Kubernetes
+        update-gitops-manifest:
+            runs-on: ubuntu-latest
+            needs: build-and-push
+            steps:
+                - name: Deploy placeholder
+                run: echo "Deploying application.."
+    ```
+     
 
 ## 3️⃣ – Repositório Git com os manifests do ArgoCD
 
