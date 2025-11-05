@@ -11,6 +11,7 @@ ATENÇÃO! Os comandos utilizados e documentados aqui são para a shell `bash` q
 - Git (2.43.0+)
 - Docker Engine (28.5.1)
 - Kubectl (v1.34.1)
+- Kustomize (v5.3.0)
 - Python (3.12.3)
 - Pip (24.0)
 - Conta no GitHub
@@ -197,6 +198,147 @@ O GitHub actions vai ser a ferramenta de CI que utilizaremos, sendo uma parte es
      
 
 ## 3️⃣ – Repositório Git com os manifests do ArgoCD
+Nessa etapa o objetivo é criar o arquivo manifesto para o Kubernetes, enviar esse arquivo para o repositório remoto e ajustar o arquivo de workflow do GitHub Actions para atualizar o manifesto automaticamente, utilizando a imagem nova construida.
+
+- ### Criar manifesto Kubernetes
+    No diretório com o repositório git para manifestos que criamos anteriormente, crie uma pasta chamada `k8s` para indicar manifestos Kubernetes.
+
+    Dentro dessa pasta recém criada, crie um arquivo com um nome como `api-manifest.yml` .
+
+    Após isso preencha o conteúdo do arquivo de manifesto: (SUBSTITUIR OS VALORES ENTRE CHAVES {} PARA CORRESPONDER COM SEU PROJETO)
+
+    ``` yaml
+    ---
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+    name: api-deployment
+    spec:
+    replicas: 3
+    selector:
+        matchLabels:
+        app: cicd-app-pb
+    template:
+        metadata:
+        labels:
+            app: cicd-app-pb
+        spec:
+        containers:
+        - name: cicd-app-pb
+            image: {SEU_NOME_DOCKERHUB}/{SEU_REPOSITORIO_DOCKERHUB}:placeholder
+            ports:
+            - containerPort: 8000
+
+    ---
+    ---
+    apiVersion: v1
+    kind: Service
+    metadata:
+    name: api-app-nodeport
+    spec:
+    type: NodePort
+    selector:
+        app: cicd-app-pb
+    ports:
+        - port: 80
+        targetPort: 8000
+        nodePort: 31000
+        protocol: TCP
+        
+    ---
+    ```
+
+- ### Criar arquivo Kustomize
+    Kustomize permite criar arquivos de customização com variaveis e outros elementos em um manifesto Kubernetes, isso será especialmente útil para nós quando modificarmos o workflow para alterar o comportamento do manifesto.
+
+    Crie também na pasta `k8s`, um arquivo com o nome de `kustomization.yml` com o conteúdo:
+
+    ``` yaml
+    apiVersion: kustomize.config.k8s.io/v1beta1
+    kind: Kustomization
+
+    resources:
+    - api-manifest.yml
+
+    images:
+    - name: {SEU_NOME_DOCKERHUB}/{SEU_REPOSITORIO_DOCKERHUB}
+    newTag: placeholder
+    ```
+
+- ### Testando o manifesto criado
+    Para testar se o deployment está funcional, vamos pedir para o Kubernetes localmente tentar aplicar o que está declarado no documento.
+
+    Primeiro inicie o Minikube:
+
+    ``` bash
+    minikube start
+    ```
+
+    Aplique o manifesto. Para isso, a partir da raiz do diretório do repositório git, execute o seguinte comando: (o `-k` garante que o kubectl utilizará o Kustomize)
+
+    ``` bash
+    kubectl apply -k k8s/
+    ```
+
+    Espere um tempo para iniciar os containers e teste se nossa aplicação está acessivel por meio do service `NodePort` declarado no manifesto, um comando simples do Minikube que abre automaticamente o IP e porta do cluster no navegador é:
+    ``` bash
+    minikube service api-app-nodeport
+    ```
+
+    Se foi possivel visualizar a resposta da API que definimos no arquivo Python, significa que deu tudo certo.
+
+- ### Atualizando o arquivo workflow
+    O workflow de antes não estava completo pois ainda não tinhamos o repositório de GitOps populado. Agora temos todos os recursos e devemos finalizar de escrever o workflow GitHub Actions.
+
+    Modifique o Job `update-gitops-manifest` para que ele tenha o seguinte conteúdo:
+
+    ``` yaml
+    update-gitops-manifest:
+        runs-on: ubuntu-latest
+        needs: build-and-push
+        steps:
+            - name: Configure SSH
+            uses: webfactory/ssh-agent@v0.9.0
+            with:
+                ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+            - name: Add GitHub to known_hosts
+            run: ssh-keyscan github.com >> ~/.ssh/known_hosts
+
+            - name: Clone GitOps repository
+            run: git clone git@github.com:devbrunofernandes/cicd-manifests-pb.git gitops-repo
+
+            - name: Configure Git
+            working-directory: ./gitops-repo
+            run: |
+                git config --global user.name 'GitHub Actions'
+                git config --global user.email 'actions@github.com'
+
+            - name: Install Kustomize
+            run: |
+                curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | bash
+                sudo mv kustomize /usr/local/bin/
+
+            - name: Update image tag in manifest
+            working-directory: ./gitops-repo/k8s
+            run: kustomize edit set image ${{ secrets.DOCKER_USERNAME }}/cicd-app-pb:${{ github.sha }}
+            
+            - name: Commit and push changes
+            working-directory: ./gitops-repo
+            run: |
+                git add k8s/kustomization.yml
+                
+                if ! git diff --staged --quiet; then
+                git commit -m "Atualizado a tag da imagem da aplicação para ${{ github.sha }}"
+                git push
+                else
+                echo "Sem mudanças no código. A tag da imagem já está atualizada."
+                fi
+    ```
+
+    Caso deseja visualizar o resultado final do arquivo de workflow, clique em [meu workflow](.github/workflows/ci-build-push.yml).
+
+    Para testar melhor o resultado do workflow, antes de fazer o push, modifique algo no código fonte, como trocar a resposta da API para outra.
 
 ## 4️⃣ – Criar App no ArgoCD
 
