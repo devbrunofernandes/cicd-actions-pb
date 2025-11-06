@@ -132,7 +132,7 @@ O GitHub actions vai ser a ferramenta de CI que utilizaremos, sendo uma parte es
 - ### Gerar token de acesso pessoal do DockerHub
     Seguindo a mesma lógica de chave de acesso porém dessa vez para o DockerHub, esse token vai garantir que podemos fazer uma operação de `push` para o registry.
 
-    **Ao criar o token de acesso lembre-se de garantir o direito de escrito e leitura. Lembre-se também de guardar o valor do token pois ele só exibido 1 vez.**
+    **Ao criar o token de acesso lembre-se de garantir o direito de escrita e leitura. Lembre-se também de guardar o valor do token pois ele só exibido 1 vez.**
 
     Em caso de dúvida no processo de criação acesse a [documentaçao oficial do Docker sobre tokens de acesso](https://docs.docker.com/security/access-tokens/).
 
@@ -306,7 +306,7 @@ Nessa etapa o objetivo é criar o arquivo manifesto para o Kubernetes, enviar es
             run: ssh-keyscan github.com >> ~/.ssh/known_hosts
 
             - name: Clone GitOps repository
-            run: git clone git@github.com:devbrunofernandes/cicd-manifests-pb.git gitops-repo
+            run: git clone git@github.com:{SEU_USUARIO_GITHUB}/{NOME_REPOSITORIO_GITOPS}.git gitops-repo
 
             - name: Configure Git
             working-directory: ./gitops-repo
@@ -341,7 +341,136 @@ Nessa etapa o objetivo é criar o arquivo manifesto para o Kubernetes, enviar es
     Para testar melhor o resultado do workflow, antes de fazer o push, modifique algo no código fonte, como trocar a resposta da API para outra.
 
 ## 4️⃣ – Criar App no ArgoCD
+Nesta etapa, vamos configurar o ArgoCD para monitorar nosso repositório de manifestos.
+
+**Pré-requisito**: Assumimos que o ArgoCD já está instalado no cluster.
+
+- ### Abrindo a porta para o ArgoCD
+    Abriremos uma porta de escuta para o serviço do ArgoCD, dessa forma conseguiremos nos comunicar com ele.
+
+    Para isso execute: (**ATENÇÃO!** Este comando vai "prender" o seu terminal para exibir os logs de conexão. Recomendo abrir um novo terminal dedicado apenas para ele e deixá-lo rodando.)
+
+    ``` bash
+    kubectl port-forward svc/argocd-server -n argocd 8080:443
+    ```
+
+- ### Fazendo login no ArgoCD
+    Agora para se autenticar e ser capaz de utiliza-lo, faremos login no ArgoCD.
+
+    O nome de usuario padrão é: `admin`
+    
+    A senha deve ser obtida através da saída do comando:
+
+    ``` bash
+    kubectl get secret argocd-initial-admin-secret -n argocd -o jsonpath="{.data.password}" | base64 -d
+    ```
+
+    Com essas duas informações necessárias obtidas, para fazer o login propriamente dito via interface de linha de comando, execute:
+
+    ``` bash
+    argocd login localhost:8080
+    ```
+
+    Recomendo logar via navegador também, para isso é só digitar `localhost:8080` na barra de endereço e inserir os dados que já obtemos.
+
+- ### Gerando chave de acesso SSH
+    Precisamos criar outra chave SSH para o repositório GitOps, dessa vez a chave tem um propósito diferente da outra, a anterior era para que o workflow da pipeline tivesse a capacidade de fazer `push` para o repositório GitOps. Dessa vez precisamos de uma chave para conceder permissão do ArgoCD visualizar o conteúdo do repositório.
+
+    Por conta disso, a permissão da chave nova chave será de **somente leitura**.
+
+    Para criar a chave e adiciona-la ao GitHub siga o mesmo procedimento que já realizamos na parte/etapa 2 desse documento. As únicas alterações serão o nome da chave (para remeter ao ArgoCD) e a permissão no repositório de somente leitura.
+
+    Após isso, temos um passo extra para fazer com que o ArgoCD consiga utilizar essa chave para se comunicar com o repositório remoto. Isso pode ser feito através do comando: (SUBSTITUA OS VALORES ENTRE CHAVES {} PARA CORRESPONDER AO SEUS)
+
+    ``` bash
+    argocd repo add {URL_SSH_DO_SEU_REPO} --ssh-private-key-path {CAMINHO_DA_CHAVE_PRIVADA}
+    ```
+
+- ### Criando manifesto ArgoCD
+    Um manifesto ArgoCD vai ser responsavel por declarar exatamente a estrutura do ArgoCD que vai comandar nosso cluster Kubernetes. Dessa forma não precisamos configurar manualmente, e seguimos a risca as boas práticas de GitOps (toda a fonte de verdade está no repositório de manifestos).
+
+    Primeiro crie um novo diretório na raiz da pasta onde está o repositório git com os manifestos, nomeie esse novo diretório como `apps`.
+
+    Dentro de `apps` crie um novo arquivo com um nome como `app-cicd.yml`, ele vai ser nosso manifesto para o ArgoCD.
+
+    Preencha o conteúdo do arquivo:
+
+    ``` yaml
+    apiVersion: argoproj.io/v1alpha1
+    kind: Application
+    metadata:
+        name: app-cicd
+        namespace: argocd
+    spec:
+        project: default
+        source:
+            repoURL: 'git@github.com:{SEU_USUARIO_GITHUB}/{SEU_REPOSITORIO_GITOPS}.git'
+            targetRevision: HEAD
+            path: k8s/
+        destination:
+            server: 'https://kubernetes.default.svc'
+            namespace: default
+        syncPolicy:
+            automated:
+                prune: true
+                selfHeal: true
+            syncOptions:
+                - CreateNamespace=true
+    ```
+
+    Esse yaml declara que queremos o ArgoCD observando nosso repositório na pasta `k8s`, na branch principal, com autosync habilitado (faz o rollout no cluster automaticamente ao detectar uma mudança no repositório remoto), ele também está configurado para reverter alguma mudança manual feita no cluster, dessa forma refletindo exatamente o repositório git não a configuração local.
+
+- ### Commit e fazendo o Bootstrap da aplicação
+    Esses são os passos finais para implementar o ArgoCD, precisamos atualizar o repositório GitOps remoto no GitHub e executar um comando localmente para que o ArgoCD inicie a execução.
+
+    Para atualizar o repositório remoto, dentro do seu diretório do GitOps utilize os comandos:
+
+    ``` bash
+    git add apps/app-cicd.yml
+    git commit -m "Adicionado o manifesto do ArgoCD"
+    git push
+    ```
+
+    Inicie a execução do ArgoCD através da utilização do seguinte comando na raiz do diretório onde está o repositório GitOps:
+
+    ``` bash
+    kubectl apply -f apps/app-cicd.yml
+    ```
+
+- ### Visualizando o cluster no ArgoCD
+    Podemos visualizar de forma intuitiva o funcionamento do cluster por meio da interface gráfica web do ArgoCD.
+
+    Conseguimos acessar a interface através do endereço `localhost:8080` no navegador, conforme a porta que foi exposta nos passos anteriores e para se autentificar são as mesmas credenciais também dos passos anteriores.
+
+    ![ArgoCD Sincronizado](./images/argocd-app-comprimido.png)
 
 ## 5️⃣ – Acessar e testar a aplicação localmente
+Para validar que todos os passos anteriores foram realizados corretamente, a nossa aplicação deve estar agora acessivel, e o ciclo CI-CD deve ser realizado de forma completa.
+
+- ### Testando acessibilidade da API
+    Primeiramente vamos testar se a API está acessivel via o serviço de `NodePort` dessa vez rodando pelo ArgoCD.
+
+    Utilize o mesmo comando do ultimo teste que fizemos para acessar a API:
+
+    ``` bash
+    minikube service api-app-nodeport
+    ```
+
+    Se deu tudo certo, automaticamente será aberto no seu navegador padrão a resposta da API no endereço padrão.
+
+    ![Acesso a API pelo navegador](./images/acessoAPI-comprimido.png)
+
+- ### Testando a atualização automatica do cluster
+    Vamos mudar a mensagem padrão da API e verificar se o procedimento de build da imagem, atualização do repositório GitOps e sincronia do ArgoCD está corretamente implementado.
+
+    Modifique a mensagem da API como por exemplo de `hello GitOps` para `hello ArgoCD`, após isso execute os comandos para enviar as modificações no código fonte para o repositório remoto. (de dentro da raiz do diretório do código)
+
+    ``` bash
+    git add main.py
+    git commit -m "Atualização da mensagem da API"
+    git push
+    ```
+
+    Aguarde um momento até que o ArgoCD sincronize com o repositório remoto (leva cerca de 3 minutos), após esse tempo recarregue a página da aplicação e verifique se a nova mensagem apareceu.
 
 ## 🔚 Conclusão
