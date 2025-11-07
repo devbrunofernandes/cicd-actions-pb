@@ -36,4 +36,4 @@ As capturas de tela abaixo comprovam que o ArgoCD detectou a mudança e a aplica
 
 **Evidência 4.4: Resposta da Aplicação (Após Atualização Automática)**
 *Após um `git push` no código-fonte, o pipeline completo rodou e o ArgoCD atualizou o cluster sem intervenção manual, como visto pela nova mensagem.*
-![Endpoint atualizado com a nova mensagem da API](./images/endpoint-atualizado-comprimido.png)
+![Endpoint atualizado com a nova mensagem da API](./images/health-response-comprimido.png)

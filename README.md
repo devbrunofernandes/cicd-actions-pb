@@ -1,8 +1,8 @@
 # CI/CD com o Github Actions
 
-**➡️ [CLIQUE AQUI PARA ACESSAR OS ENTREGÁVEIS DA AVALIAÇÃO](ENTREGAVEIS.md) ⬅️**
+**➡️ [CLIQUE AQUI PARA ACESSAR OS ENTREGÁVEIS DA AVALIAÇÃO](./entregaveis.md) ⬅️**
 
-Este é um projeto que busca implementar todas as etapas do ciclo de desenvolvimento de software, partindo do ambiente local para repositorios de código remoto com automação em processos de build, e então atualização automatica de manifestos de infraestrutura (Kubernetes) com praticas de GitOps integradas para o deploy automatizado.
+Este é um projeto que busca implementar todas as etapas do ciclo de desenvolvimento de software, partindo do ambiente local para repositórios de código remoto com automação em processos de build, e então atualização automática de manifestos de infraestrutura (Kubernetes) com práticas de GitOps integradas para o deploy automatizado.
 
 O objetivo desse texto é documentar todo o passo a passo realizado durante o processo.
 
@@ -26,7 +26,7 @@ Nessa etapa do projeto o objetivo é criar nossos repositórios que serão utili
 A aplicação modelo é uma API escrita Python utilizando a biblioteca/framework FastAPI, esse por sua vez é uma biblioteca do Python para criação de APIs de forma simples e rápida.
 
 - ### Criação dos repositórios do projeto
-    Antes da própria aplicação vamos criar os repositorios locais e remotos que serão utilizados no projeto.
+    Antes da própria aplicação vamos criar os repositórios locais e remotos que serão utilizados no projeto.
 
     Crie no github dois repositórios, um com a finalidade de ser o repositório do código fonte da nossa aplicação e o outro para práticas de GitOps.
 
@@ -41,7 +41,7 @@ A aplicação modelo é uma API escrita Python utilizando a biblioteca/framework
 - ### Criação da aplicação Python
     Acesse via linha de comando a pasta para o código fonte que foi criada nos passos anteriores.
 
-    Dentro da pasta vamos criar um `venv` do Python. Isso é uma ferramente que permite utilizar um "ambiente virtual" de desenvolvimento para gerenciar as dependências do projeto sem que precisem ser instaladas diretamente na nossa máquina inteira, ficam contidas no projeto especifico, dessa forma ao desenvolver multiplos projetos grandes com diversas dependências, a possibilidade de conflitos de versão é evitada.
+    Dentro da pasta vamos criar um `venv` do Python. Isso é uma ferramenta que permite utilizar um "ambiente virtual" de desenvolvimento para gerenciar as dependências do projeto sem que precisem ser instaladas diretamente na nossa máquina inteira, ficam contidas no projeto específico, dessa forma ao desenvolver multiplos projetos grandes com diversas dependências, a possibilidade de conflitos de versão é evitada.
 
     Essa é uma boa prática de desenvolvimento no ambiente Python. Para criar um `venv` utilize o seguinte comando:
 
@@ -49,7 +49,7 @@ A aplicação modelo é uma API escrita Python utilizando a biblioteca/framework
     python3 -m venv .venv
     ```
 
-    Com o `venv` criado, para começar a utiliza-lo execute também:
+    Com o `venv` criado, para começar a utilizá-lo execute também:
 
     ``` bash
     source .venv/bin/activate
@@ -94,7 +94,7 @@ A aplicação modelo é uma API escrita Python utilizando a biblioteca/framework
         nome: str
         nivel: int
 
-    # Variveis globais, guardam os valores em memória
+    # Variáveis globais, guardam os valores em memória
     team: Dict[int, Pokemon] = {}
     lastId = 0
     TEAMLIMIT = 6
@@ -130,10 +130,10 @@ A aplicação modelo é uma API escrita Python utilizando a biblioteca/framework
         return createdPokemon
     ```
 
-    Essa é uma API simples de demonstração para gerenciar um time Pokemon. Ela possui requisições `get` e `post` para visualizar e adicionar um Pokemon a equipe, e tem uma regra de negocio simples de que uma equipe não pode possuir mais do que 6 Pokemon.
+    Essa é uma API simples de demonstração para gerenciar um time Pokemon. Ela possui requisições `get` e `post` para visualizar e adicionar um Pokemon a equipe, e tem uma regra de negócio simples de que uma equipe não pode possuir mais do que 6 Pokemon.
 
 - ### Criação dos testes unitários
-    Vamos criar o arquivo Python necessário para executar testes unitarios nos endpoints da nossa API, isso vai ser automatizado na pipeline CI-CD de forma a garantir a qualidade da construção das nossas imagens que serão usadas no cluster Kubernetes.
+    Vamos criar o arquivo Python necessário para executar testes unitários nos endpoints da nossa API, isso vai ser automatizado na pipeline CI-CD de forma a garantir a qualidade da construção das nossas imagens que serão usadas no cluster Kubernetes.
 
     Crie uma pasta chamada `tests` na raiz do diretório com o código fonte da aplicação e acesse-a:
 
@@ -201,7 +201,7 @@ A aplicação modelo é uma API escrita Python utilizando a biblioteca/framework
     pip install ruff pytest "fastapi[testclient]"
     ```
 
-    Instaladas podemos validar fazendo o `linting` (processo de análise estática do código, buscando por erros) e o `testing` (processo de análise do código referente a lógica funcional e regras de negocio).
+    Instaladas podemos validar fazendo o `linting` (processo de análise estática do código, buscando por erros) e o `testing` (processo de análise do código referente a lógica funcional e regras de negócio).
 
     Os comandos utilizados para as validações são:
 
@@ -213,10 +213,10 @@ A aplicação modelo é uma API escrita Python utilizando a biblioteca/framework
     Se a saída não aponta nenhum erro, significa que tudo está de acordo com o esperado.
 
 - ### Criação do Dockerfile e building
-    A criação dos arquivos necessarios para fazer o build da imagem do Docker são fundamentais para o funcionamento da pipeline, pois nosso aplicação vai ser executada por meio de um cluster Kubernetes e precisamos prover as imagens que ele usará.
+    A criação dos arquivos necessários para fazer o build da imagem do Docker são fundamentais para o funcionamento da pipeline, pois nossa aplicação vai ser executada por meio de um cluster Kubernetes e precisamos prover as imagens que ele usará.
 
 
-    Crie um arquivo `.dockerignore` com o seguinte conteúdo para ignorar arquivos desnecessarios de entrarem no processo de build.
+    Crie um arquivo `.dockerignore` com o seguinte conteúdo para ignorar arquivos desnecessários de entrarem no processo de build.
     ``` .dockerignore
     .venv/
     __pycache__/
@@ -225,7 +225,7 @@ A aplicação modelo é uma API escrita Python utilizando a biblioteca/framework
     .vscode/
     ```
 
-    Agora o arquivo `Dockerfile` com as instruções de como o Docker deve fazer o build, usaremos a imagem base do python 3.12, fazemos o `COPY` do requirements.txt para conseguir instalar as dependências por meio de um comando `pip`. Copiamos o conteúdo do nosso repositório para a imagem, definimos a porta de escuta do container como 8000 e por ultimo o comando `uvicorn` para servir a aplicação.
+    Agora o arquivo `Dockerfile` com as instruções de como o Docker deve fazer o build, usaremos a imagem base do python 3.12, fazemos o `COPY` do requirements.txt para conseguir instalar as dependências por meio de um comando `pip`. Copiamos o conteúdo do nosso repositório para a imagem, definimos a porta de escuta do container como 8000 e por último o comando `uvicorn` para servir a aplicação.
     ``` Dockerfile
     FROM python:3.12-slim
     WORKDIR /app
@@ -241,7 +241,7 @@ A aplicação modelo é uma API escrita Python utilizando a biblioteca/framework
     docker build -t fastapi .
     ```
 
-    Depois de terminar o build da imagem, com esse outro comando podemos executar um container e testar se a aplicação está funcional e acessivel. Use o comando e tente acessar `localhost` no seu navegador.
+    Depois de terminar o build da imagem, com esse outro comando podemos executar um container e testar se a aplicação está funcional e acessível. Use o comando e tente acessar `localhost` no seu navegador.
     ``` bash
     docker run -d -p 80:8000 --name api fastapi
     ```
@@ -266,7 +266,7 @@ O GitHub actions vai ser a ferramenta de CI que utilizaremos, sendo uma parte es
     ssh-keygen -t rsa -b 4096 -f ~/.ssh/cicd-ssh-key -N "" -C "cicd-ssh-key"
     ```
 
-    Antes de prosseguir para o proximo passo precisamos cadastrar a chave pública no repositório GitOps. (**Lembre-se de permitir a escrita no repositório, pois isso é necessario para o workflow**)
+    Antes de prosseguir para o proximo passo precisamos cadastrar a chave pública no repositório GitOps. (**Lembre-se de permitir a escrita no repositório, pois isso é necessário para o workflow**)
 
     Para saber mais sobre, acesse a [documentação oficial do GitHub sobre chaves de implantação](https://docs.github.com/pt/authentication/connecting-to-github-with-ssh/managing-deploy-keys).
 
@@ -278,12 +278,12 @@ O GitHub actions vai ser a ferramenta de CI que utilizaremos, sendo uma parte es
     Em caso de dúvida no processo de criação acesse a [documentaçao oficial do Docker sobre tokens de acesso](https://docs.docker.com/security/access-tokens/).
 
 - ### Criar segredos no GitHub
-    Precisamos também dos segredos no repositório do código fonte, com eles podemos armazenar os dados sensíveis de autentificação de forma segura e utiliza-los no arquivo de workflow do GitHub Actions.
+    Precisamos também dos segredos no repositório do código fonte, com eles podemos armazenar os dados sensíveis de autenticação de forma segura e utilizá-los no arquivo de workflow do GitHub Actions.
 
     Para criar um segredo vá até as configurações do repositório com o código fonte da aplicação, clique em `secrets and variables`, em seguida em `actions`, então em secrets clique em `New repository secret`.
 
     Os segredos que devem ser criados são:
-    - *DOCKER_USERNAME* -> com o nome de usuario do DockerHub
+    - *DOCKER_USERNAME* -> com o nome de usuário do DockerHub
     - *DOCKER_PASSWORD* -> com o token de acesso que geramos no DockerHub
     - *SSH_PRIVATE_KEY* -> com a chave SSH **privada** do par que geramos.
 
@@ -292,9 +292,9 @@ O GitHub actions vai ser a ferramenta de CI que utilizaremos, sendo uma parte es
 - ### Criar o arquivo workflow
     Finalmente podemos criar o arquivo yaml do workflow para o GitHub actions. 
     
-    Os jobs que estarão funcionando efetivamente agora vão ser o `lint`, `test` e `build-and-push`. Garantindo que o `build` só aconteça se o código fonte passar nos críterios de qualidade.
+    Os jobs que estarão funcionando efetivamente agora vão ser o `lint`, `test` e `build-and-push`. Garantindo que o `build` só aconteça se o código fonte passar nos critérios de qualidade.
 
-    Como ainda não temos o manifesto do Kubernetes, a parte de alteração do manifesto, commit e push não vai estar completa por agora, completaremos essa sessão nos proximos passos.
+    Como ainda não temos o manifesto do Kubernetes, a parte de alteração do manifesto, commit e push não vai estar completa por agora, completaremos essa seção nos proximos passos.
 
     ``` yaml
     name: CI Build Push
@@ -312,7 +312,7 @@ O GitHub actions vai ser a ferramenta de CI que utilizaremos, sendo uma parte es
               - name: Set up Python
                 uses: actions/setup-python@v5
                 with:
-                python-version: '3.12'
+                    python-version: '3.12'
                 
               - name: Install lint dependencies
                 run: pip install ruff
@@ -330,7 +330,7 @@ O GitHub actions vai ser a ferramenta de CI que utilizaremos, sendo uma parte es
               - name: Set up Python
                 uses: actions/setup-python@v5
                 with:
-                python-version: '3.12'
+                    python-version: '3.12'
                 
               - name: Install test dependencies
                 run: |
@@ -406,7 +406,7 @@ Nessa etapa o objetivo é criar o arquivo manifesto para o Kubernetes, enviar es
             spec:
                 containers:
                   - name: cicd-app-pb
-                    image: {SEU_NOME_DOCKERHUB}/{SEU_REPOSITORIO_DOCKERHUB}:placeholder
+                    image: {SEU_NOME_DOCKERHUB}/cicd-app-pb:placeholder
                     ports:
                       - containerPort: 8000
     ---
@@ -429,7 +429,7 @@ Nessa etapa o objetivo é criar o arquivo manifesto para o Kubernetes, enviar es
     ```
 
 - ### Criar arquivo Kustomize
-    Kustomize permite criar arquivos de customização com variaveis e outros elementos em um manifesto Kubernetes, isso será especialmente útil para nós quando modificarmos o workflow para alterar o comportamento do manifesto.
+    Kustomize permite criar arquivos de customização com variáveis e outros elementos em um manifesto Kubernetes, isso será especialmente útil para nós quando modificarmos o workflow para alterar o comportamento do manifesto.
 
     Crie também na pasta `k8s`, um arquivo com o nome de `kustomization.yml` com o conteúdo:
 
@@ -460,7 +460,7 @@ Nessa etapa o objetivo é criar o arquivo manifesto para o Kubernetes, enviar es
     kubectl apply -k k8s/
     ```
 
-    Espere um tempo para iniciar os containers e teste se nossa aplicação está acessivel por meio do service `NodePort` declarado no manifesto, um comando simples do Minikube que abre automaticamente o IP e porta do cluster no navegador é:
+    Espere um tempo para iniciar os containers e teste se nossa aplicação está acessível por meio do service `NodePort` declarado no manifesto, um comando simples do Minikube que abre automaticamente o IP e porta do cluster no navegador é:
     ``` bash
     minikube service api-app-nodeport
     ```
@@ -468,7 +468,7 @@ Nessa etapa o objetivo é criar o arquivo manifesto para o Kubernetes, enviar es
     Se foi possivel visualizar a resposta da API que definimos no arquivo Python, significa que deu tudo certo.
 
 - ### Atualizando o arquivo workflow
-    O workflow de antes não estava completo pois ainda não tinhamos o repositório de GitOps populado. Agora temos todos os recursos e devemos finalizar de escrever o workflow GitHub Actions.
+    O workflow de antes não estava completo pois ainda não tínhamos o repositório de GitOps populado. Agora temos todos os recursos e devemos finalizar de escrever o workflow GitHub Actions.
 
     Modifique o Job `update-gitops-manifest` para que ele tenha o seguinte conteúdo:
 
@@ -535,9 +535,9 @@ Nesta etapa, vamos configurar o ArgoCD para monitorar nosso repositório de mani
     ```
 
 - ### Fazendo login no ArgoCD
-    Agora para se autenticar e ser capaz de utiliza-lo, faremos login no ArgoCD.
+    Agora para se autenticar e ser capaz de utilizá-lo, faremos login no ArgoCD.
 
-    O nome de usuario padrão é: `admin`
+    O nome de usuário padrão é: `admin`
     
     A senha deve ser obtida através da saída do comando:
 
@@ -556,7 +556,7 @@ Nesta etapa, vamos configurar o ArgoCD para monitorar nosso repositório de mani
 - ### Gerando chave de acesso SSH
     Precisamos criar outra chave SSH para o repositório GitOps, dessa vez a chave tem um propósito diferente da outra, a anterior era para que o workflow da pipeline tivesse a capacidade de fazer `push` para o repositório GitOps. Dessa vez precisamos de uma chave para conceder permissão do ArgoCD visualizar o conteúdo do repositório.
 
-    Por conta disso, a permissão da chave nova chave será de **somente leitura**.
+    Por conta disso, a permissão da nova chave será de **somente leitura**.
 
     Para criar a chave e adiciona-la ao GitHub siga o mesmo procedimento que já realizamos na parte/etapa 2 desse documento. As únicas alterações serão o nome da chave (para remeter ao ArgoCD) e a permissão no repositório de somente leitura.
 
@@ -567,7 +567,7 @@ Nesta etapa, vamos configurar o ArgoCD para monitorar nosso repositório de mani
     ```
 
 - ### Criando manifesto ArgoCD
-    Um manifesto ArgoCD vai ser responsavel por declarar exatamente a estrutura do ArgoCD que vai comandar nosso cluster Kubernetes. Dessa forma não precisamos configurar manualmente, e seguimos a risca as boas práticas de GitOps (toda a fonte de verdade está no repositório de manifestos).
+    Um manifesto ArgoCD vai ser responsável por declarar exatamente a estrutura do ArgoCD que vai comandar nosso cluster Kubernetes. Dessa forma não precisamos configurar manualmente, e seguimos a risca as boas práticas de GitOps (toda a fonte de verdade está no repositório de manifestos).
 
     Primeiro crie um novo diretório na raiz da pasta onde está o repositório git com os manifestos, nomeie esse novo diretório como `apps`.
 
@@ -620,17 +620,17 @@ Nesta etapa, vamos configurar o ArgoCD para monitorar nosso repositório de mani
 - ### Visualizando o cluster no ArgoCD
     Podemos visualizar de forma intuitiva o funcionamento do cluster por meio da interface gráfica web do ArgoCD.
 
-    Conseguimos acessar a interface através do endereço `localhost:8080` no navegador, conforme a porta que foi exposta nos passos anteriores e para se autentificar são as mesmas credenciais também dos passos anteriores.
+    Conseguimos acessar a interface através do endereço `localhost:8080` no navegador, conforme a porta que foi exposta nos passos anteriores e para se autenticar são as mesmas credenciais também dos passos anteriores.
 
     ![ArgoCD Sincronizado](./images/argocd-app-comprimido.png)
 
 ## 5️⃣ – Acessar e testar a aplicação localmente
-Para validar que todos os passos anteriores foram realizados corretamente, a nossa aplicação deve estar agora acessivel, e o ciclo CI-CD deve ser realizado de forma completa.
+Para validar que todos os passos anteriores foram realizados corretamente, a nossa aplicação deve estar agora acessível, e o ciclo CI-CD deve ser realizado de forma completa.
 
 - ### Acessando a Documentação Interativa (/docs)
-    Primeiramente vamos testar se a API está acessivel via o serviço de `NodePort` dessa vez rodando pelo ArgoCD.
+    Primeiramente vamos testar se a API está acessível via o serviço de `NodePort` dessa vez rodando pelo ArgoCD.
 
-    Utilize o mesmo comando do ultimo teste que fizemos para acessar a API:
+    Utilize o mesmo comando do último teste que fizemos para acessar a API:
 
     ``` bash
     minikube service api-app-nodeport
@@ -638,12 +638,12 @@ Para validar que todos os passos anteriores foram realizados corretamente, a nos
 
     Se deu tudo certo, automaticamente será aberto no seu navegador padrão a resposta da API no endereço padrão.
 
-    O endereço padrão somente retorna uma mensagem de boas vindas e indica que acessemos o endereço com `/docs`. Esse é um endpoint gerado automaticamente pelo FastAPI que documenta e permite testar os endpoints da nossa API. Acesse adicionando `/docs` ao fim do endereço que o Minikube providenciou.
+    O endereço padrão somente retorna uma mensagem de boas-vindas e indica que acessemos o endereço com `/docs`. Esse é um endpoint gerado automaticamente pelo FastAPI que documenta e permite testar os endpoints da nossa API. Acesse adicionando `/docs` ao fim do endereço que o Minikube providenciou.
 
     ![Acesso ao endpoint /docs](./images/acessoAPI-comprimido.png)
 
-- ### Testando a atualização automatica do cluster
-    Vamos mudar a mensagem na rota `/health` da API e verificar se o procedimento de build da imagem, atualização do repositório GitOps e sincronia do ArgoCD está corretamente implementado.
+- ### Testando a atualização automática do cluster
+    Vamos mudar a mensagem na rota `/health` da API e verificar se o procedimento de build da imagem, atualização do repositório GitOps e sincronia do ArgoCD está corretamente implementada.
 
     Modifique a mensagem da API para algo como:
 
@@ -664,9 +664,9 @@ Para validar que todos os passos anteriores foram realizados corretamente, a nos
     git push
     ```
 
-    Aguarde um momento até que o ArgoCD sincronize com o repositório remoto (leva cerca de 3 minutos), após esse tempo recarregue a página da aplicação, acesse o endpoint `/health` verifique se a nova mensagem apareceu.
+    Aguarde um momento até que o ArgoCD sincronize com o repositório remoto (leva cerca de 3 minutos), após esse tempo recarregue a página da aplicação, acesse o endpoint `/health` e verifique se a nova mensagem apareceu.
 
-    ![Endpoint atualizado com a nova mensagem da API](./images/endpoint-atualizado-comprimido.png)
+    ![Endpoint atualizado com a nova mensagem da API](./images/health-response-comprimido.png)
 
 ## 🔚 Conclusão
 Com isso, concluímos um ciclo CI/CD completo. O código enviado ao repositório da aplicação dispara um build, que atualiza o repositório de manifestos. O ArgoCD detecta essa mudança e aplica automaticamente ao cluster, demonstrando um fluxo de GitOps puro, protegido por portões de qualidade automatizados como linting e testes unitários.
