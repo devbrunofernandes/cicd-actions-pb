@@ -74,14 +74,143 @@ A aplicação modelo é uma API escrita Python utilizando a biblioteca/framework
     Crie o arquivo `main.py` com o seguinte código fonte:
 
     ``` python
-    from fastapi import FastAPI 
+    from typing import List, Dict
+    from fastapi import FastAPI, HTTPException
+    from pydantic import BaseModel
 
-    app = FastAPI() 
+    app = FastAPI(
+        title="API de Time Pokemon (Demo CI/CD)",
+        description="Um projeto para demonstrar um pipeline completo de GitOps."
+    )
+
+    class PokemonCreate(BaseModel):
+        """Modelo de dados para criar um novo Pokémon."""
+        nome: str
+        nivel: int
+
+    class Pokemon(BaseModel):
+        """Modelo de dados para retornar um Pokémon (com ID)."""
+        id: int
+        nome: str
+        nivel: int
+
+    # Variveis globais, guardam os valores em memória
+    team: Dict[int, Pokemon] = {}
+    lastId = 0
+    TEAMLIMIT = 6
 
     @app.get("/")
-    async def root(): 
-        return {"message": "Hello World"}
+    async def root():
+        """Rota principal com uma mensagem de boas-vindas."""
+        return {"message": "Bem-vindo à API de Time Pokémon! Acesse /docs para ver a documentação."}
+
+    @app.get("/health")
+    async def health():
+        """Rota de saúde"""
+        return {"status": "OK"}
+
+    @app.get("/team", response_model=List[Pokemon])
+    async def getTeam():
+        """Retorna todos os Pokémon no time."""
+        return list(team.values())
+
+    @app.post("/team", response_model=Pokemon, status_code=201)
+    async def addTeam(newPokemon: PokemonCreate):
+        """Adiciona um novo Pokémon ao time."""
+        global team
+        global lastId
+
+        if len(team) >= TEAMLIMIT:
+            raise HTTPException(status_code=400, detail="O time está cheio! (Máximo 6 pokemon).")
+        
+        createdPokemon = Pokemon(id=lastId, **newPokemon.model_dump())
+        team[lastId] = createdPokemon
+        lastId += 1
+
+        return createdPokemon
     ```
+
+    Essa é uma API simples de demonstração para gerenciar um time Pokemon. Ela possui requisições `get` e `post` para visualizar e adicionar um Pokemon a equipe, e tem uma regra de negocio simples de que uma equipe não pode possuir mais do que 6 Pokemon.
+
+- ### Criação dos testes unitários
+    Vamos criar o arquivo Python necessário para executar testes unitarios nos endpoints da nossa API, isso vai ser automatizado na pipeline CI-CD de forma a garantir a qualidade da construção das nossas imagens que serão usadas no cluster Kubernetes.
+
+    Crie uma pasta chamada `tests` na raiz do diretório com o código fonte da aplicação e acesse-a:
+
+    ``` bash
+    mkdir tests
+    cd tests
+    ```
+
+    Dentro de `tests` crie um arquivo chamado `test_main.py` com o seguinte conteúdo:
+
+    ``` python
+    from fastapi.testclient import TestClient
+    from main import app, team, TEAMLIMIT
+
+    client = TestClient(app)
+
+    def setup_function():
+        team.clear()
+
+    def test_health():
+        """Verifica se a aplicação está saudavel."""
+        setup_function()
+        response = client.get("/health")
+        assert response.status_code == 200
+        assert response.json() == {"status": "OK"}
+
+    def test_add_get_team():
+        """Testa adicionar um Pokémon e depois listar o time."""
+        setup_function()
+        
+        pokemon = {"nome": "Pikachu", "nivel": 25}
+        responsePost = client.post("/team", json=pokemon)
+        
+        assert responsePost.status_code == 201
+        data = responsePost.json()
+
+        assert data["nome"] == "Pikachu"
+
+        responseGet = client.get("/team")
+        
+        assert responseGet.status_code == 200
+        data = responseGet.json()
+        assert len(data) == 1
+        assert data[0]["nome"] == "Pikachu"
+
+    def test_team_limit():
+        """Testa a lógica de negócio (limite de 6 Pokémon)."""
+        setup_function()
+        
+        for i in range(TEAMLIMIT):
+            client.post("/team", json={"nome": f"Pokemon-{i}", "nivel": 10})
+        
+        extraPokemonRequest = client.post("/team", json={"nome": "Extra", "nivel": 1})
+        
+        assert extraPokemonRequest.status_code == 400
+        assert "O time está cheio" in extraPokemonRequest.json()["detail"]
+    ```
+
+- ### Validando o código localmente (Lint e Test)
+    Antes de enviar o código para o repositório remoto onde ele será validado e buildado a imagem para o DockerHub (após a implementação do workflow na seção 2), um passo importante de se fazer é validar localmente a solução.
+
+    Para isso é preciso instalar as dependências de desenvolvimento e validação. Faça isso com o comando:
+
+    ``` bash
+    pip install ruff pytest "fastapi[testclient]"
+    ```
+
+    Instaladas podemos validar fazendo o `linting` (processo de análise estática do código, buscando por erros) e o `testing` (processo de análise do código referente a lógica funcional e regras de negocio).
+
+    Os comandos utilizados para as validações são:
+
+    ``` bash
+    ruff check . --fix
+    python -m pytest
+    ```
+
+    Se a saída não aponta nenhum erro, significa que tudo está de acordo com o esperado.
 
 - ### Criação do Dockerfile e building
     A criação dos arquivos necessarios para fazer o build da imagem do Docker são fundamentais para o funcionamento da pipeline, pois nosso aplicação vai ser executada por meio de um cluster Kubernetes e precisamos prover as imagens que ele usará.
@@ -124,7 +253,8 @@ O GitHub actions vai ser a ferramenta de CI que utilizaremos, sendo uma parte es
     Para usar o GitHub actions precisamos criar no repositório um diretório `.github` e dentro dele um outro diretório `workflows`, este contendo um arquivo yaml que vai definir as operações de CI.
 
     ``` bash
-    mkdir -p .github/workflows/ && cd .github/workflows/
+    mkdir -p .github/workflows/
+    cd .github/workflows/
     touch ci-build-push.yml
     ```
 - ### Criar a chave de acesso ao repositório GitOps
@@ -162,6 +292,8 @@ O GitHub actions vai ser a ferramenta de CI que utilizaremos, sendo uma parte es
 - ### Criar o arquivo workflow
     Finalmente podemos criar o arquivo yaml do workflow para o GitHub actions. 
     
+    Os jobs que estarão funcionando efetivamente agora vão ser o `lint`, `test` e `build-and-push`. Garantindo que o `build` só aconteça se o código fonte passar nos críterios de qualidade.
+
     Como ainda não temos o manifesto do Kubernetes, a parte de alteração do manifesto, commit e push não vai estar completa por agora, completaremos essa sessão nos proximos passos.
 
     ``` yaml
@@ -171,8 +303,46 @@ O GitHub actions vai ser a ferramenta de CI que utilizaremos, sendo uma parte es
             branches:
               - main
     jobs:
+        lint:
+            runs-on: ubuntu-latest
+            steps:
+              - name: Repo checkout
+                uses: actions/checkout@v5
+
+              - name: Set up Python
+                uses: actions/setup-python@v5
+                with:
+                python-version: '3.12'
+                
+              - name: Install lint dependencies
+                run: pip install ruff
+
+              - name: Run linter
+                run: ruff check .
+
+        test:
+            runs-on: ubuntu-latest
+            needs: lint
+            steps:
+              - name: Repo checkout
+                uses: actions/checkout@v5
+
+              - name: Set up Python
+                uses: actions/setup-python@v5
+                with:
+                python-version: '3.12'
+                
+              - name: Install test dependencies
+                run: |s
+                pip install pytest "fastapi[testclient]"
+                pip install -r requirements.txt
+
+              - name: Run tests
+                run: python -m pytest
+
         build-and-push:
             runs-on: ubuntu-latest
+            needs: test
             steps:
               - name: Repo checkout
                 uses: actions/checkout@v5
@@ -457,7 +627,7 @@ Nesta etapa, vamos configurar o ArgoCD para monitorar nosso repositório de mani
 ## 5️⃣ – Acessar e testar a aplicação localmente
 Para validar que todos os passos anteriores foram realizados corretamente, a nossa aplicação deve estar agora acessivel, e o ciclo CI-CD deve ser realizado de forma completa.
 
-- ### Testando acessibilidade da API
+- ### Acessando a Documentação Interativa (/docs)
     Primeiramente vamos testar se a API está acessivel via o serviço de `NodePort` dessa vez rodando pelo ArgoCD.
 
     Utilize o mesmo comando do ultimo teste que fizemos para acessar a API:
@@ -468,12 +638,23 @@ Para validar que todos os passos anteriores foram realizados corretamente, a nos
 
     Se deu tudo certo, automaticamente será aberto no seu navegador padrão a resposta da API no endereço padrão.
 
-    ![Acesso a API pelo navegador](./images/acessoAPI-comprimido.png)
+    O endereço padrão somente retorna uma mensagem de boas vindas e indica que acessemos o endereço com `/docs`. Esse é um endpoint gerado automaticamente pelo FastAPI que documenta e permite testar os endpoints da nossa API. Acesse adicionando `/docs` ao fim do endereço que o Minikube providenciou.
+
+    ![Acesso ao endpoint /docs](./images/acessoAPI-comprimido.png)
 
 - ### Testando a atualização automatica do cluster
-    Vamos mudar a mensagem padrão da API e verificar se o procedimento de build da imagem, atualização do repositório GitOps e sincronia do ArgoCD está corretamente implementado.
+    Vamos mudar a mensagem na rota `/healthy` da API e verificar se o procedimento de build da imagem, atualização do repositório GitOps e sincronia do ArgoCD está corretamente implementado.
 
-    Modifique a mensagem da API como por exemplo de `hello GitOps` para `hello ArgoCD`, após isso execute os comandos para enviar as modificações no código fonte para o repositório remoto. (de dentro da raiz do diretório do código)
+    Modifique a mensagem da API para algo como:
+
+    ``` python
+    @app.get("/health")
+    async def health():
+        """Rota de saúde."""
+        return {"status": "OK", "version": "1.1"}
+    ```
+    
+    Após isso execute os comandos para enviar as modificações no código fonte para o repositório remoto. (de dentro da raiz do diretório do código)
 
     ``` bash
     git add main.py
@@ -481,9 +662,9 @@ Para validar que todos os passos anteriores foram realizados corretamente, a nos
     git push
     ```
 
-    Aguarde um momento até que o ArgoCD sincronize com o repositório remoto (leva cerca de 3 minutos), após esse tempo recarregue a página da aplicação e verifique se a nova mensagem apareceu.
+    Aguarde um momento até que o ArgoCD sincronize com o repositório remoto (leva cerca de 3 minutos), após esse tempo recarregue a página da aplicação, acesse o endpoint `/healthy` verifique se a nova mensagem apareceu.
 
     ![Endpoint atualizado com a nova mensagem da API](./images/endpoint-atualizado-comprimido.png)
 
 ## 🔚 Conclusão
-Com isso, concluímos um ciclo CI/CD completo. O código enviado ao repositório da aplicação dispara um build, que atualiza o repositório de manifestos. O ArgoCD detecta essa mudança e aplica automaticamente ao cluster, demonstrando um fluxo de GitOps puro e automatizado.
+Com isso, concluímos um ciclo CI/CD completo. O código enviado ao repositório da aplicação dispara um build, que atualiza o repositório de manifestos. O ArgoCD detecta essa mudança e aplica automaticamente ao cluster, demonstrando um fluxo de GitOps puro, protegido por portões de qualidade automatizados como linting e testes unitários.
