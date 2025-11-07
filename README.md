@@ -1,4 +1,7 @@
-# CI/CD com o Github Actions (Em progresso)
+# CI/CD com o Github Actions
+
+**➡️ [CLIQUE AQUI PARA ACESSAR OS ENTREGÁVEIS DA AVALIAÇÃO](ENTREGAVEIS.md) ⬅️**
+
 Este é um projeto que busca implementar todas as etapas do ciclo de desenvolvimento de software, partindo do ambiente local para repositorios de código remoto com automação em processos de build, e então atualização automatica de manifestos de infraestrutura (Kubernetes) com praticas de GitOps integradas para o deploy automatizado.
 
 O objetivo desse texto é documentar todo o passo a passo realizado durante o processo.
@@ -33,6 +36,8 @@ A aplicação modelo é uma API escrita Python utilizando a biblioteca/framework
 
     Faça a conexão dos repositórios remotos e locais seguindo as instruções fornecidas pelo GitHub ao criar os repositórios.
 
+    [Clique aqui se quiser acessar meu repositório GitOps desse projeto.](https://github.com/devbrunofernandes/cicd-manifests-pb)
+
 - ### Criação da aplicação Python
     Acesse via linha de comando a pasta para o código fonte que foi criada nos passos anteriores.
 
@@ -58,9 +63,15 @@ A aplicação modelo é uma API escrita Python utilizando a biblioteca/framework
     pip install fastapi uvicorn
     ```
 
+    Para que nosso Dockerfile consiga instalar essas dependências, precisamos "congelá-las" em um arquivo de requisitos. Execute:
+
+    ``` bash
+    pip freeze > requirements.txt
+    ```
+
     **Lembrando de utilizar o interpretador Python que está dentro da pasta `.venv`, não o comum do sistema.**
 
-    Crie o arquivo contendo o código fonte da aplicação:
+    Crie o arquivo `main.py` com o seguinte código fonte:
 
     ``` python
     from fastapi import FastAPI 
@@ -122,7 +133,7 @@ O GitHub actions vai ser a ferramenta de CI que utilizaremos, sendo uma parte es
     Para criar a chave SSH, utilize o seguinte comando:
 
     ``` bash
-    ssh-keygen -t rsa -b 4096 -f ./cicd-ssh-key -N "" -C "cicd-ssh-key"
+    ssh-keygen -t rsa -b 4096 -f ~/.ssh/cicd-ssh-key -N "" -C "cicd-ssh-key"
     ```
 
     Antes de prosseguir para o proximo passo precisamos cadastrar a chave pública no repositório GitOps. (**Lembre-se de permitir a escrita no repositório, pois isso é necessario para o workflow**)
@@ -158,27 +169,27 @@ O GitHub actions vai ser a ferramenta de CI que utilizaremos, sendo uma parte es
     on: 
         push:
             branches:
-                - main
+              - main
     jobs:
         build-and-push:
             runs-on: ubuntu-latest
             steps:
-                - name: Repo checkout
+              - name: Repo checkout
                 uses: actions/checkout@v5
 
-                - name: Login Docker hub
+              - name: Login Docker hub
                 uses: docker/login-action@v3
                 with:
                     username: ${{ secrets.DOCKER_USERNAME }}
                     password: ${{ secrets.DOCKER_PASSWORD }}
 
-                - name: Set up QEMU
+              - name: Set up QEMU
                 uses: docker/setup-qemu-action@v3
 
-                - name: Set up Docker Buildx
+              - name: Set up Docker Buildx
                 uses: docker/setup-buildx-action@v3
 
-                - name: Build and push
+              - name: Build and push
                 uses: docker/build-push-action@v6
                 with:
                     context: .
@@ -192,7 +203,7 @@ O GitHub actions vai ser a ferramenta de CI que utilizaremos, sendo uma parte es
             runs-on: ubuntu-latest
             needs: build-and-push
             steps:
-                - name: Deploy placeholder
+              - name: Deploy placeholder
                 run: echo "Deploying application.."
     ```
      
@@ -212,38 +223,37 @@ Nessa etapa o objetivo é criar o arquivo manifesto para o Kubernetes, enviar es
     apiVersion: apps/v1
     kind: Deployment
     metadata:
-    name: api-deployment
+        name: api-deployment
     spec:
-    replicas: 3
-    selector:
-        matchLabels:
-        app: cicd-app-pb
-    template:
-        metadata:
-        labels:
-            app: cicd-app-pb
-        spec:
-        containers:
-        - name: cicd-app-pb
-            image: {SEU_NOME_DOCKERHUB}/{SEU_REPOSITORIO_DOCKERHUB}:placeholder
-            ports:
-            - containerPort: 8000
-
+        replicas: 3
+        selector:
+            matchLabels:
+                app: cicd-app-pb
+        template:
+            metadata:
+                labels:
+                    app: cicd-app-pb
+            spec:
+                containers:
+                  - name: cicd-app-pb
+                    image: {SEU_NOME_DOCKERHUB}/{SEU_REPOSITORIO_DOCKERHUB}:placeholder
+                    ports:
+                      - containerPort: 8000
     ---
     ---
     apiVersion: v1
     kind: Service
     metadata:
-    name: api-app-nodeport
+        name: api-app-nodeport
     spec:
-    type: NodePort
-    selector:
-        app: cicd-app-pb
-    ports:
-        - port: 80
-        targetPort: 8000
-        nodePort: 31000
-        protocol: TCP
+        type: NodePort
+        selector:
+            app: cicd-app-pb
+        ports:
+            - port: 80
+              targetPort: 8000
+              nodePort: 31000
+              protocol: TCP
         
     ---
     ```
@@ -258,11 +268,11 @@ Nessa etapa o objetivo é criar o arquivo manifesto para o Kubernetes, enviar es
     kind: Kustomization
 
     resources:
-    - api-manifest.yml
+      - api-manifest.yml
 
     images:
-    - name: {SEU_NOME_DOCKERHUB}/{SEU_REPOSITORIO_DOCKERHUB}
-    newTag: placeholder
+      - name: {SEU_NOME_DOCKERHUB}/cicd-app-pb
+        newTag: placeholder
     ```
 
 - ### Testando o manifesto criado
@@ -297,33 +307,33 @@ Nessa etapa o objetivo é criar o arquivo manifesto para o Kubernetes, enviar es
         runs-on: ubuntu-latest
         needs: build-and-push
         steps:
-            - name: Configure SSH
+          - name: Configure SSH
             uses: webfactory/ssh-agent@v0.9.0
             with:
                 ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-            - name: Add GitHub to known_hosts
+          - name: Add GitHub to known_hosts
             run: ssh-keyscan github.com >> ~/.ssh/known_hosts
 
-            - name: Clone GitOps repository
+          - name: Clone GitOps repository
             run: git clone git@github.com:{SEU_USUARIO_GITHUB}/{NOME_REPOSITORIO_GITOPS}.git gitops-repo
 
-            - name: Configure Git
+          - name: Configure Git
             working-directory: ./gitops-repo
             run: |
                 git config --global user.name 'GitHub Actions'
                 git config --global user.email 'actions@github.com'
 
-            - name: Install Kustomize
+          - name: Install Kustomize
             run: |
                 curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | bash
                 sudo mv kustomize /usr/local/bin/
 
-            - name: Update image tag in manifest
+          - name: Update image tag in manifest
             working-directory: ./gitops-repo/k8s
             run: kustomize edit set image ${{ secrets.DOCKER_USERNAME }}/cicd-app-pb:${{ github.sha }}
             
-            - name: Commit and push changes
+          - name: Commit and push changes
             working-directory: ./gitops-repo
             run: |
                 git add k8s/kustomization.yml
@@ -473,4 +483,7 @@ Para validar que todos os passos anteriores foram realizados corretamente, a nos
 
     Aguarde um momento até que o ArgoCD sincronize com o repositório remoto (leva cerca de 3 minutos), após esse tempo recarregue a página da aplicação e verifique se a nova mensagem apareceu.
 
+    ![Endpoint atualizado com a nova mensagem da API](./images/endpoint-atualizado-comprimido.png)
+
 ## 🔚 Conclusão
+Com isso, concluímos um ciclo CI/CD completo. O código enviado ao repositório da aplicação dispara um build, que atualiza o repositório de manifestos. O ArgoCD detecta essa mudança e aplica automaticamente ao cluster, demonstrando um fluxo de GitOps puro e automatizado.
