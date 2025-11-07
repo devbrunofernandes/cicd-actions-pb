@@ -30,8 +30,8 @@ async def root():
 
 @app.get("/health")
 async def health():
-    """Rota de saúde"""
-    return {"status": "OK"}
+    """Rota de saúde."""
+    return {"status": "OK", "version": "1.1"}
 
 @app.get("/team", response_model=List[Pokemon])
 async def getTeam():

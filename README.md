@@ -333,7 +333,7 @@ O GitHub actions vai ser a ferramenta de CI que utilizaremos, sendo uma parte es
                 python-version: '3.12'
                 
               - name: Install test dependencies
-                run: |s
+                run: |
                 pip install pytest httpx
                 pip install -r requirements.txt
 
@@ -643,7 +643,7 @@ Para validar que todos os passos anteriores foram realizados corretamente, a nos
     ![Acesso ao endpoint /docs](./images/acessoAPI-comprimido.png)
 
 - ### Testando a atualização automatica do cluster
-    Vamos mudar a mensagem na rota `/healthy` da API e verificar se o procedimento de build da imagem, atualização do repositório GitOps e sincronia do ArgoCD está corretamente implementado.
+    Vamos mudar a mensagem na rota `/health` da API e verificar se o procedimento de build da imagem, atualização do repositório GitOps e sincronia do ArgoCD está corretamente implementado.
 
     Modifique a mensagem da API para algo como:
 
@@ -654,6 +654,8 @@ Para validar que todos os passos anteriores foram realizados corretamente, a nos
         return {"status": "OK", "version": "1.1"}
     ```
     
+    (**ATENÇÃO!** Modifique também o arquivo `test_main.py` para que ele espere a resposta `{"status": "OK", "version": "1.1"}`. Caso contrário, o pipeline vai falhar na etapa de `test`)
+
     Após isso execute os comandos para enviar as modificações no código fonte para o repositório remoto. (de dentro da raiz do diretório do código)
 
     ``` bash
@@ -662,7 +664,7 @@ Para validar que todos os passos anteriores foram realizados corretamente, a nos
     git push
     ```
 
-    Aguarde um momento até que o ArgoCD sincronize com o repositório remoto (leva cerca de 3 minutos), após esse tempo recarregue a página da aplicação, acesse o endpoint `/healthy` verifique se a nova mensagem apareceu.
+    Aguarde um momento até que o ArgoCD sincronize com o repositório remoto (leva cerca de 3 minutos), após esse tempo recarregue a página da aplicação, acesse o endpoint `/health` verifique se a nova mensagem apareceu.
 
     ![Endpoint atualizado com a nova mensagem da API](./images/endpoint-atualizado-comprimido.png)
 

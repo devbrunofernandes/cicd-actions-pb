@@ -11,7 +11,7 @@ def test_health():
     setup_function()
     response = client.get("/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "OK"}
+    assert response.json() == {"status": "OK", "version": "1.1"}
 
 def test_add_get_team():
     """Testa adicionar um Pokémon e depois listar o time."""
