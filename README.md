@@ -334,7 +334,7 @@ O GitHub actions vai ser a ferramenta de CI que utilizaremos, sendo uma parte es
                 
               - name: Install test dependencies
                 run: |s
-                pip install pytest "fastapi[testclient]"
+                pip install pytest httpx
                 pip install -r requirements.txt
 
               - name: Run tests
